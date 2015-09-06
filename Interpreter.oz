@@ -26,6 +26,13 @@ fun {Pop}
    end
 end
 
+proc {CreateVar X Env S}
+   local NewEnv in
+      {AdjoinAt Env X {AddKeyToSAS} NewEnv}
+      {Push semanticstack(statement:S environment:NewEnv)}
+   end
+end
+
 proc {Interpret AST}
    {Push semanticstack(statement:AST environment:env())}
    local Execute in
@@ -35,6 +42,9 @@ proc {Interpret AST}
             case @Temp.statement
             of nil then skip
             [] [nop] then {Execute}
+            [] [localvar ident(X) S] then
+               {CreateVar X @Temp.environment S}
+               {Execute}
             [] X|Xs then
                if Xr \= nil then {Push semanticstack(statement:Xs environment:@Temp.environment)}
                else skip
@@ -49,4 +59,4 @@ proc {Interpret AST}
    end
 end
 
-{Interpret [[nop] [nop] [nop]]}
+% {Interpret [[nop] [nop] [nop]]}
