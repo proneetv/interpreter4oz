@@ -36,7 +36,7 @@ end
 proc {Bind X Y Env}
    case Y
    of [procedure Arg Statement] then
-      ???
+      {Unify X procedure(argument:Arg statement:Statement environment:Env) Env}
    else {Unify X Y Env}
    end
 end
