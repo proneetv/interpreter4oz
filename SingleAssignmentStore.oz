@@ -25,3 +25,17 @@ end
 
 % Setters and Getters
 
+fun {AddKeyToSAS}
+   SASIndex := @SASIndex + 1
+   {Dictionary.put SAS SASIndex equivalence(@SASIndex)}
+   @SASIndex
+end
+
+fun {RetrieveFromSAS Data}
+   local Val in
+	  Val = {Dictionary.get SAS Data}
+	  case Val
+	  of reference(Key) then {RetrieveFromSAS Key}
+	  else Val end
+   end
+end
