@@ -59,4 +59,7 @@ proc {Interpret AST}
    end
 end
 
+% ==> Logger/Check Statements
+% {Browse @SStack}
+% {Browse {Dictionary.toRecord _ SAS}}
 % {Interpret [[nop] [nop] [nop]]}
