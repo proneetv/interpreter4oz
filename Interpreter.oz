@@ -41,6 +41,21 @@ proc {Bind X Y Env}
    end
 end
 
+proc {Conditional X S1 S2 Env}
+   local Condition in
+      Condition = {RetrieveFromSAS Environment.X} % needs to be Checked ???
+      if Condition == literal(true) then
+         {Push semanticstack(statement:S1 environment:Env)}
+      else
+         if Condition == literal(false) then
+            {Push semanticstack(statement:S2 environment:Env)}
+         else
+            raise illFormedStatement(X)
+         end
+      end
+   end
+end
+
 proc {Interpret AST}
    {Push semanticstack(statement:AST environment:env())}
    local Execute in
@@ -57,7 +72,7 @@ proc {Interpret AST}
                {Bind X Y @Temp.environment}
                {Execute}
             [] [conditional X S1 S2] then
-               ???
+               {Conditional X S1 S2 @Temp.environment}
                {Execute}
             [] [match X P S1 S2] then
                ???
