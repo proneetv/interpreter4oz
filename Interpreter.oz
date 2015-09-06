@@ -33,6 +33,14 @@ proc {CreateVar X Env S}
    end
 end
 
+proc {Bind X Y Env}
+   case Y
+   of [procedure Arg Statement] then
+      ???
+   else {Unify X Y Env}
+   end
+end
+
 proc {Interpret AST}
    {Push semanticstack(statement:AST environment:env())}
    local Execute in
@@ -44,6 +52,9 @@ proc {Interpret AST}
             [] [nop] then {Execute}
             [] [localvar ident(X) S] then
                {CreateVar X @Temp.environment S}
+               {Execute}
+            [] [bind X Y] then
+               {Bind X Y @Temp.environment}
                {Execute}
             [] X|Xs then
                if Xr \= nil then {Push semanticstack(statement:Xs environment:@Temp.environment)}
