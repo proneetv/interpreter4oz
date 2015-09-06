@@ -35,6 +35,12 @@ proc {Interpret AST}
             case @Temp.statement
             of nil then skip
             [] [nop] then {Execute}
+            [] X|Xs then
+               if Xr \= nil then {Push semanticstack(statement:Xs environment:@Temp.environment)}
+               else skip
+               end
+               {Push semanticstack(statement:X environment:@Temp.environment)}
+               {Execute}
             end
          else skip
          end
