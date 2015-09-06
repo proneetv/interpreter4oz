@@ -56,6 +56,15 @@ proc {Interpret AST}
             [] [bind X Y] then
                {Bind X Y @Temp.environment}
                {Execute}
+            [] [conditional X S1 S2] then
+               ???
+               {Execute}
+            [] [match X P S1 S2] then
+               ???
+               {Execute}
+            [] apply|ident(X)|S then
+               ???
+               {Execute}
             [] X|Xs then
                if Xr \= nil then {Push semanticstack(statement:Xs environment:@Temp.environment)}
                else skip
