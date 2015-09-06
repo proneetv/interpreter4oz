@@ -33,9 +33,9 @@ end
 
 fun {RetrieveFromSAS Data}
    local Val in
-	  Val = {Dictionary.get SAS Data}
-	  case Val
-	  of reference(Key) then {RetrieveFromSAS Key}
-	  else Val end
+      Val = {Dictionary.get SAS Data}
+      case Val
+      of reference(Key) then {RetrieveFromSAS Key}
+      else Val end
    end
 end
