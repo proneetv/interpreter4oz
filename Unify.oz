@@ -31,8 +31,8 @@ in
    %=================
    fun {SubstituteIdentifiers Exp Env}
       case Exp
-      of H|T then
-	 {SubstituteIdentifiers H Env}|{SubstituteIdentifiers T Env}
+      of H|T then  
+    {SubstituteIdentifiers H Env}|{SubstituteIdentifiers T Env}
       [] ident(X) then {RetrieveFromSAS Env.X}
       else Exp end
    end
@@ -46,6 +46,7 @@ in
       of equivalence(A) then {RetrieveFromSAS A}
       else X end
    end
+   
    %=================
    % Main unification procedure.
    % Assumes that identifiers have been substituted away, by calling
@@ -59,10 +60,9 @@ in
       % unifying already unified expressions.
       % Code modified from Siddharth Agarwal's code
       %==================
-      if {List.member [Exp1 Exp2] UnificationsSoFar}
-      then skip
+      if {List.member [Exp1 Exp2] UnificationsSoFar} then skip
       else
-	 Unifications = {List.append [Exp1 Exp2] UnificationsSoFar}
+	 Unifications = {List.append [[Exp1 Exp2]] UnificationsSoFar}
 	 case Exp1
 	 of equivalence(X) then
 	    case Exp2
@@ -100,6 +100,5 @@ in
    end % UnifyRecursive
 
    %========= Start Unification ======
-   {UnifyRecursive {SubstituteIdentifiers Exp1 Env}
-    {SubstituteIdentifiers Exp2 Env} nil}
+   {UnifyRecursive {SubstituteIdentifiers Exp1 Env} {SubstituteIdentifiers Exp2 Env} nil}
 end
