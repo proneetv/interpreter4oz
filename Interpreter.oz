@@ -7,14 +7,13 @@
 
 \insert Unify.oz
 
-declare SStack Pop Temp Interpret
+declare SStack Temp PrintRoutine Push Pop Bind CreateVar Interpret
 
 SStack = {NewCell nil}
-
 Temp = {NewCell nil}
 
 proc {Push S}
-   SStack := S|SStack
+   SStack := S|@SStack
 end
 
 fun {Pop}
@@ -26,13 +25,6 @@ fun {Pop}
    end
 end
 
-proc {CreateVar X Env S}
-   local NewEnv in
-      {AdjoinAt Env X {AddKeyToSAS} NewEnv}
-      {Push semanticstack(statement:S environment:NewEnv)}
-   end
-end
-
 proc {Bind X Y Env}
    case Y
    of [procedure Arg Statement] then
@@ -41,18 +33,10 @@ proc {Bind X Y Env}
    end
 end
 
-proc {Conditional X S1 S2 Env}
-   local Condition in
-      Condition = {RetrieveFromSAS Environment.X} % needs to be Checked ???
-      if Condition == literal(true) then
-         {Push semanticstack(statement:S1 environment:Env)}
-      else
-         if Condition == literal(false) then
-            {Push semanticstack(statement:S2 environment:Env)}
-         else
-            raise illFormedStatement(X)
-         end
-      end
+proc {CreateVar X Env Statement}
+   local NewEnv in
+      {AdjoinAt Env X {AddKeyToSAS} NewEnv}
+      {Push semanticstack(statement:Statement environment:NewEnv)}
    end
 end
 
@@ -60,35 +44,39 @@ proc {Interpret AST}
    {Push semanticstack(statement:AST environment:env())}
    local Execute in
       proc {Execute}
-         Temp := {Pop}
-         if @Temp \= nil then
-            case @Temp.statement
-            of nil then skip
-            [] [nop] then {Execute}
-            [] [localvar ident(X) S] then
-               {CreateVar X @Temp.environment S}
-               {Execute}
-            [] [bind X Y] then
-               {Bind X Y @Temp.environment}
-               {Execute}
-            [] [conditional X S1 S2] then
-               {Conditional X S1 S2 @Temp.environment}
-               {Execute}
-            [] X|Xs then
-               if Xr \= nil then {Push semanticstack(statement:Xs environment:@Temp.environment)}
-               else skip
-               end
-               {Push semanticstack(statement:X environment:@Temp.environment)}
-               {Execute}
-            end
-         else skip
-         end
+	 {PrintRoutine}
+	 Temp := {Pop}
+	 if @Temp \= nil then
+	    case @Temp.statement
+	    of nil then {Browse 'Success'}
+	    [] [nop] then {Execute}
+	    [] [localvar ident(X) Xs] then
+	       {CreateVar X @Temp.environment Xs}
+	       {Execute}
+	    [] [bind X Y] then
+	       {Bind X Y @Temp.environment}
+	       {Execute}
+	    [] X|Xs then
+	       if Xs \= nil then
+		  {Push semanticstack(statement:Xs environment:@Temp.environment)}
+	       else skip
+	       end
+	       {Push semanticstack(statement:X environment:@Temp.environment)}
+	       {Execute}
+	    end
+	 else {Browse 'Success'}
+	 end
       end
       {Execute}
    end
 end
 
-% ==> Logger/Check Statements
-% {Browse @SStack}
-% {Browse {Dictionary.toRecord _ SAS}}
+proc {PrintRoutine}
+   {Browse @SStack}
+   {Browse {Dictionary.items SAS}}
+end
+
 % {Interpret [[nop] [nop] [nop]]}
+
+{Interpret [[localvar ident(x)
+	[[nop]  [localvar ident(y)[[bind ident(x) ident(y)] [localvar ident(x)[nop]]]]]]]}
