@@ -5,7 +5,7 @@
 %          Triveni Mahatha
 %================================
 
-declare SAS SASIndex
+declare
 
 SASIndex = {NewCell 0}
 
@@ -22,7 +22,6 @@ fun { CheckForLoopInSAS Val KeyToFind}
       else false
       end
    else
-      {Browse hi}
       false
    end
 end
