@@ -7,7 +7,7 @@
 
 \insert Unify.oz
 
-declare SStack Temp PrintRoutine Push Pop Bind CreateVar Interpret
+declare SStack Temp PrintRoutine Push Pop Bind CreateVar Interpret Conditional Match Apply
 
 SStack = {NewCell nil}
 Temp = {NewCell nil}
@@ -40,6 +40,21 @@ proc {CreateVar X Env Statement}
    end
 end
 
+% proc {Conditional ident(X) S1 S2 Env}
+%    local Condition in
+%       Condition = {RetrieveFromSAS Env.X}
+%       if Condition == literal(true) then
+%          {Push semanticstack(statement:S1 environment:Env)}
+%       else
+%          if Condition == literal(false) then
+%             {Push semanticstack(statement:S2 environment:Env)}
+%          else
+%             raise illFormedStatement(X)
+%          end
+%       end
+%    end
+% end
+
 proc {Interpret AST}
    {Push semanticstack(statement:AST environment:env())}
    local Execute in
@@ -56,7 +71,16 @@ proc {Interpret AST}
 	    [] [bind X Y] then
 	       {Bind X Y @Temp.environment}
 	       {Execute}
-	    [] X|Xs then
+            [] [conditional ident(X) S1 S2] then
+               {Conditional ident(X) S1 S2 @Temp.environment}
+               {Execute}
+            [] [match X Pat S1 S2] then
+               {Match X Pat S1 S2 @Temp.environment}
+               {Execute}
+            [] apply|ident(X)|Param then
+               {Apply X Param @Temp.environment}
+               {Execute}
+            [] X|Xs then
 	       if Xs \= nil then
 		  {Push semanticstack(statement:Xs environment:@Temp.environment)}
 	       else skip
@@ -78,5 +102,4 @@ end
 
 % {Interpret [[nop] [nop] [nop]]}
 
-{Interpret [[localvar ident(x)
-	[[nop]  [localvar ident(y)[[bind ident(x) ident(y)] [localvar ident(x)[nop]]]]]]]}
+{Interpret [localvar ident(x) [bind ident(x) literal(5)]]}
