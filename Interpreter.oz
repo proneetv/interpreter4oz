@@ -68,8 +68,8 @@ proc {Interpret AST}
 	    [] [localvar ident(X) Xs] then
 	       {CreateVar X @Temp.environment Xs}
 	       {Execute}
-	    [] [bind X Y] then
-	       {Bind X Y @Temp.environment}
+	    [] [bind ident(X) ident(Y)] then
+	       {Bind ident(X) ident(Y) @Temp.environment}
 	       {Execute}
             [] [conditional ident(X) S1 S2] then
                {Conditional ident(X) S1 S2 @Temp.environment}
@@ -102,4 +102,7 @@ end
 
 % {Interpret [[nop] [nop] [nop]]}
 
-{Interpret [localvar ident(x) [bind ident(x) literal(5)]]}
+% {Interpret [localvar ident(x) [bind ident(x) literal(5)]]}
+
+{Interpret [[localvar ident(x)
+	[[nop]  [localvar ident(y)[[bind ident(x) ident(y)] [localvar ident(x)[nop]]]]]]]}
