@@ -40,20 +40,20 @@ proc {CreateVar X Env Statement}
    end
 end
 
-% proc {Conditional ident(X) S1 S2 Env}
-%    local Condition in
-%       Condition = {RetrieveFromSAS Env.X}
-%       if Condition == literal(true) then
-%          {Push semanticstack(statement:S1 environment:Env)}
-%       else
-%          if Condition == literal(false) then
-%             {Push semanticstack(statement:S2 environment:Env)}
-%          else
-%             raise illFormedStatement(X)
-%          end
-%       end
-%    end
-% end
+proc {Conditional ident(X) S1 S2 Env}
+   local Condition in
+      Condition = {RetrieveFromSAS Env.X}
+      if Condition == literal(true) then
+         {Push semanticstack(statement:S1 environment:Env)}
+      else
+         if Condition == literal(false) then
+            {Push semanticstack(statement:S2 environment:Env)}
+         else
+            raise booleanCheckFailed(X) end
+         end
+      end
+   end
+end
 
 proc {Interpret AST}
    {Push semanticstack(statement:AST environment:env())}
