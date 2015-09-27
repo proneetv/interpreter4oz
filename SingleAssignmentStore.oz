@@ -26,6 +26,29 @@ fun { CheckForLoopInSAS Val KeyToFind}
    end
 end
 
+fun {ResolveLinksInRecord R}
+   local Aux in
+      fun {Aux Pairs}
+	 case Pairs
+	 of nil then nil
+	 [] H|T then
+	    case H
+	    of [literal(X) Y] then
+	       case Y
+	       of equivalence(Z) then [literal(X) reference(Z)]|{Aux T}
+	       [] record|_ then [literal(X) {ResolveLinksInRecord Y}]|{Aux T}
+	       else H|{Aux T}
+	       end	  
+	    end
+	 end
+      end
+      
+      case R
+      of [record N P] then [record N {Aux P}]
+      end
+   end
+   
+end
 
 proc { BindRefToKeyInSAS Key RefKey}
    if {Dictionary.member SAS Key} then
@@ -46,7 +69,11 @@ proc { BindValueToKeyInSAS Key Val}
       of equivalence(K)
       then
 	 if {CheckForLoopInSAS Val K} == false
-	 then {Dictionary.put SAS K Val}
+	 then
+	    case Val
+	    of record|_ then {Dictionary.put SAS K {ResolveLinksInRecord Val}}
+	    else {Dictionary.put SAS K Val}
+	    end
 	 end
       else raise alreadyAssigned(Key Val CurrentVal) end
       end
@@ -65,7 +92,9 @@ fun { RetrieveFromSAS Data}
    local Val in
       if {Dictionary.member SAS Data} then
 	 Val = {Dictionary.get SAS Data}
-	 case Val of reference(Key) then {RetrieveFromSAS Key}
+	 case Val of reference(Key) then
+	    {Dictionary.put SAS Data {RetrieveFromSAS Key}}
+	    {Dictionary.get SAS Data}
 	 else Val end
       else
 	 raise missingKey(Data) end
