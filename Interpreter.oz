@@ -130,17 +130,17 @@ proc {Match X P S1 S2 Env}
 	       local NewEnv in
 		  NewEnv = {PushPatternVarsToEnv P Env}
 		  try
-		     {Unify XVal P NewEnv}
+		     {Unify P XVal NewEnv}
 		     {Push semanticstack(statement:S1 environment:NewEnv)}
 		  catch E then
-		    % {Browse howdy}
+		    {Browse E}
 		     {Push semanticstack(statement:S2 environment:Env)}
 		  end		     
 	       end
 	    else raise partiallyUnboundX(X) end
 	    end
 	 else
-	    %{Browse p_is_not_a_record}
+	 %   {Browse p_is_not_a_record}
 	    {Push semanticstack(statement:S2 environment:Env)}
 	 end
       else
@@ -207,9 +207,9 @@ end
 	    [
 	     [localvar ident(y)
 	      [
-	       [bind literal(10) ident(y)]
 	       [bind ident(x) [record literal(label) [[literal(f1) literal(1)] [literal(f2) ident(y)]] ] ]
-	       [match ident(x) [record literal(label) [[literal(f1) ident(y)] [literal(f2) ident(z)]] ]	[localvar ident(x) [bind ident(x) ident(y)]] [nop] ]
+	       [bind literal(10) ident(y)]
+	       [match ident(x) [record literal(label) [[literal(f1) ident(s)] [literal(f2) ident(z)]] ]	[localvar ident(x) [bind ident(x) ident(z)]] [nop] ]
 	      ]
 	     ]
 	    ]
