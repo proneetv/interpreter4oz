@@ -40,22 +40,16 @@ proc { BindRefToKeyInSAS Key RefKey}
 end
 
 proc { BindValueToKeyInSAS Key Val}
-   if {Dictionary.member SAS Key} then
-      local CurrentVal in
-	 CurrentVal = {Dictionary.get SAS Key}
-	 case CurrentVal
-	 of equivalence(K)
-	 then
-	    if {CheckForLoopInSAS Val Key} == false then
-	       {Dictionary.put SAS Key Val}
-	    end
-	 [] reference(NextKey)
-	 then {BindValueToKeyInSAS NextKey Val}
-	 else raise alreadyAssigned(Key Val CurrentVal) end
+   local CurrentVal in
+      CurrentVal = {RetrieveFromSAS Key}
+      case CurrentVal
+      of equivalence(K)
+      then
+	 if {CheckForLoopInSAS Val K} == false
+	 then {Dictionary.put SAS K Val}
 	 end
+      else raise alreadyAssigned(Key Val CurrentVal) end
       end
-   else
-      raise missingKey(Key) end
    end
 end
 
@@ -79,16 +73,3 @@ fun { RetrieveFromSAS Data}
    end
 end
 
-/*
-local X Y Z in
-   X = {AddKeyToSAS}
-   Y = {AddKeyToSAS}
-   Z = {AddKeyToSAS}
-   {BindRefToKeyInSAS X Y}
-   {BindRefToKeyInSAS Y Z}
-   {BindValueToKeyInSAS Z reference(X)}
-   {Browse {RetrieveFromSAS X}}
-   {Browse {RetrieveFromSAS Y}}
-   {Browse {RetrieveFromSAS Z}}
-end
-*/

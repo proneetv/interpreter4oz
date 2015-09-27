@@ -45,12 +45,13 @@ end
 %=== Example Usage ===
 % {Browse {HasUniqueEntries {Sort [a 1 2 d c 3] MixedCompare}}}
 %=====================
+   
 
 declare
 %==================
 % The list of fieldname#value pairs can be specified in any
 % order. The function returns a list of pairs sorted in the "arity"
-% order - numerical fieldnames first, sorted in ascending order,
+% order - numerical fieldnames first, sorted in ascending order, 
 % followed by lexicographic fieldnames in alphabetical order.
 %==================
 fun {Canonize Pairs}
@@ -67,7 +68,9 @@ in
       fun {FindPairWithKey K}
 	 {Filter Pairs fun {$ Y} Y.1 == K end}.1
       end
+      
       {Map SortedKeys FindPairWithKey}
    else illegalRecord(Pairs)
    end
 end
+

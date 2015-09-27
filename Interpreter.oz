@@ -7,13 +7,74 @@
 
 \insert Unify.oz
 
-declare SStack Temp PrintRoutine Push Pop Bind CreateVar Interpret Conditional Match Apply
+declare SStack Temp PrintRoutine Push Pop Bind CreateVar Interpret Conditional Match Apply PushPatternVarsToEnv CheckRecordIfCompletelyBound
 
 SStack = {NewCell nil}
 Temp = {NewCell nil}
 
 proc {Push S}
    SStack := S|@SStack
+end
+
+fun {CheckRecordIfCompletelyBound R Env}
+   local CheckRecord CheckPairs in
+      fun {CheckRecord Xs Curr}
+	 case Xs of [record literal(N) Pairs] then {CheckPairs Pairs Curr} end
+      end
+      
+      fun {CheckPairs Xs Curr}
+	 case Xs
+	 of nil then Curr
+	 [] H|T then
+	    case H
+	    of [literal(_) X] then
+	       local XVal in
+		  case X of ident(Y)
+		  then XVal = {RetrieveFromSAS Env.Y}
+		  else XVal = X
+		  end
+		  
+		  case XVal
+		  of equivalence(Key) then false
+		  [] record|_ then {CheckPairs T {CheckRecord XVal Curr}}
+		  else {CheckPairs T Curr}
+		  end
+	       end
+	    else raise illegalRecordPair(H) end
+	    end
+	 end
+      end
+      {CheckRecord R true}
+   end
+end
+
+fun {PushPatternVarsToEnv R Env}
+   local PushRecord PushPairs in
+      fun {PushRecord Xs Env}
+	 case Xs of [record literal(N) Pairs] then {PushPairs Pairs Env} end
+      end
+      
+      fun {PushPairs Xs Env}
+	 case Xs
+	 of nil then Env
+	 [] H|T then
+	    case H
+	    of [literal(_) X] then
+	       case X
+	       of ident(Y) then
+		  local NewEnv in
+		     {AdjoinAt Env Y {AddKeyToSAS} NewEnv}
+		     {PushPairs T NewEnv}
+		  end
+	       [] record|_ then {PushPairs T {PushRecord X Env}}
+	       else {PushPairs T Env}
+	       end
+	    else raise illegalRecordPair(H) end
+	    end
+	 end
+      end
+      {PushRecord R Env}
+   end
 end
 
 fun {Pop}
@@ -55,6 +116,42 @@ proc {Conditional ident(X) S1 S2 Env}
    end
 end
 
+
+proc {Match ident(X) P S1 S2 Env}
+   local XVal in
+      XVal = {RetrieveFromSAS Env.X}
+      %{Browse XVal}
+      case XVal
+      of equivalence(K) then raise unboundX(X) end
+      [] [record literal(Name1) Pairs1] then
+	 case P
+	 of [record literal(Name2) Pairs2] then
+	    if {CheckRecordIfCompletelyBound XVal Env} then
+	       local NewEnv in
+		  NewEnv = {PushPatternVarsToEnv P Env}
+		  try
+		     {Unify XVal P NewEnv}
+		     {Push semanticstack(statement:S1 environment:NewEnv)}
+		  catch E then
+		    % {Browse howdy}
+		     {Push semanticstack(statement:S2 environment:Env)}
+		  end		     
+	       end
+	    else raise partiallyUnboundX(X) end
+	    end
+	 else
+	    %{Browse p_is_not_a_record}
+	    {Push semanticstack(statement:S2 environment:Env)}
+	 end
+      else
+	% {Browse x_is_not_a_record}
+	 {Push semanticstack(statement:S2 environment:Env)}
+      end
+   end
+end
+
+
+
 proc {Interpret AST}
    {Push semanticstack(statement:AST environment:env())}
    local Execute in
@@ -68,13 +165,13 @@ proc {Interpret AST}
 	    [] [localvar ident(X) Xs] then
 	       {CreateVar X @Temp.environment Xs}
 	       {Execute}
-	    [] [bind ident(X) ident(Y)] then
-	       {Bind ident(X) ident(Y) @Temp.environment}
+	    [] [bind ident(X) Y] then
+	       {Bind ident(X) Y @Temp.environment}
 	       {Execute}
             [] [conditional ident(X) S1 S2] then
                {Conditional ident(X) S1 S2 @Temp.environment}
                {Execute}
-            [] [match X Pat S1 S2] then
+	    [] [match X Pat S1 S2] then
                {Match X Pat S1 S2 @Temp.environment}
                {Execute}
             [] apply|ident(X)|Param then
@@ -104,5 +201,17 @@ end
 
 % {Interpret [localvar ident(x) [bind ident(x) literal(5)]]}
 
-{Interpret [[localvar ident(x)
-	[[nop]  [localvar ident(y)[[bind ident(x) ident(y)] [localvar ident(x)[nop]]]]]]]}
+%{Interpret [[localvar ident(x)	[[nop]  [localvar ident(y)[[bind ident(x) ident(y)] [localvar ident(x)[nop]]]]]]]}
+
+{Interpret [localvar ident(x)
+	    [
+	     [localvar ident(y)
+	      [
+	       [bind ident(y) literal(10)]
+	       [bind ident(x) [record literal(label) [[literal(f1) literal(1)] [literal(f2) ident(y)]] ] ]
+	       [match ident(x) [record literal(label) [[literal(f1) ident(y)] [literal(f2) ident(z)]] ]	[localvar ident(x) [bind ident(x) ident(y)]] [nop] ]
+	      ]
+	     ]
+	    ]
+	   ]
+}
