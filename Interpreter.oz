@@ -101,7 +101,7 @@ proc {CreateVar X Env Statement}
    end
 end
 
-proc {Conditional ident(X) S1 S2 Env}
+proc {Conditional X S1 S2 Env}
    local Condition in
       Condition = {RetrieveFromSAS Env.X}
       if Condition == literal(true) then
@@ -117,7 +117,7 @@ proc {Conditional ident(X) S1 S2 Env}
 end
 
 
-proc {Match ident(X) P S1 S2 Env}
+proc {Match X P S1 S2 Env}
    local XVal in
       XVal = {RetrieveFromSAS Env.X}
       %{Browse XVal}
@@ -165,13 +165,13 @@ proc {Interpret AST}
 	    [] [localvar ident(X) Xs] then
 	       {CreateVar X @Temp.environment Xs}
 	       {Execute}
-	    [] [bind ident(X) Y] then
-	       {Bind ident(X) Y @Temp.environment}
+	    [] [bind X Y] then
+	       {Bind X Y @Temp.environment}
 	       {Execute}
             [] [conditional ident(X) S1 S2] then
-               {Conditional ident(X) S1 S2 @Temp.environment}
+               {Conditional X S1 S2 @Temp.environment}
                {Execute}
-	    [] [match X Pat S1 S2] then
+	    [] [match ident(X) Pat S1 S2] then
                {Match X Pat S1 S2 @Temp.environment}
                {Execute}
             [] apply|ident(X)|Param then
@@ -207,7 +207,7 @@ end
 	    [
 	     [localvar ident(y)
 	      [
-	       [bind ident(y) literal(10)]
+	       [bind literal(10) ident(y)]
 	       [bind ident(x) [record literal(label) [[literal(f1) literal(1)] [literal(f2) ident(y)]] ] ]
 	       [match ident(x) [record literal(label) [[literal(f1) ident(y)] [literal(f2) ident(z)]] ]	[localvar ident(x) [bind ident(x) ident(y)]] [nop] ]
 	      ]
