@@ -31,7 +31,8 @@ in
    %=================
    fun {SubstituteIdentifiers Exp Env}
       case Exp
-      of H|T then  
+      of procedure|_ then Exp
+      [] H|T then  
 	 {SubstituteIdentifiers H Env}|{SubstituteIdentifiers T Env}
       [] ident(X) then {RetrieveFromSAS Env.X}
       else Exp end
