@@ -7,7 +7,7 @@
 
 \insert Unify.oz
 
-declare SStack Temp 
+declare SStack Temp
 
 SStack = {NewCell nil}
 Temp = {NewCell nil}
@@ -24,7 +24,7 @@ fun {AddFreshVariablesToEnv Xs Env}
 	 else raise illegalIdentifier(V) end
 	 end
       end
-      
+
       case Xs
       of nil then Env
       [] X|Xr then {AddFreshVariablesToEnv Xr {AddFreshVarToEnv X Env}}
@@ -34,7 +34,7 @@ end
 
 fun {SubstituteIdentifiers Exp Env}
    case Exp
-   of procedure|_ then Exp 
+   of procedure|_ then Exp
    [] H|T then {SubstituteIdentifiers H Env}|{SubstituteIdentifiers T Env}
    [] ident(X) then
       if {Value.hasFeature Env X} == false
@@ -127,7 +127,7 @@ fun {CheckRecordIfCompletelyBound R Env}
 	       case N
 	       of ident(Name) then NN = {RetrieveFromSAS Env.Name}
 	       else NN = N
-	       end  
+	       end
 	       case NN
 	       of literal(_) then {CheckPairs Pairs Curr}
 	       else raise illegalRecord(Xs) end
@@ -136,7 +136,7 @@ fun {CheckRecordIfCompletelyBound R Env}
 	 else raise illegalRecord(Xs) end
 	 end
       end
-      
+
       fun {CheckPairs Xs Curr}
 	 case Xs
 	 of nil then Curr
@@ -152,13 +152,13 @@ fun {CheckRecordIfCompletelyBound R Env}
 		  else raise illegalRecordPair(H) end
 		  end
 	       end
-	       
+
 	       local XVal in
 		  case X of ident(Y) then XVal = {RetrieveFromSAS Env.Y}
 		  [] reference(Y) then XVal = {RetrieveFromSAS Y}
 		  else XVal = X
 		  end
-		  
+
 		  case XVal
 		  of equivalence(Key) then false
 		  [] record|_ then {CheckPairs T {CheckRecord XVal Curr}}
@@ -191,7 +191,7 @@ fun {PushPatternVarsToEnv R Env}
 	 else raise illegalRecord(Xs) end
 	 end
       end
-      
+
       fun {PushPairs Xs Env}
 	 case Xs
 	 of nil then Env
@@ -208,7 +208,7 @@ fun {PushPatternVarsToEnv R Env}
 		  else raise illegalRecordPair(H) end
 		  end
 	       end
-		  
+
 	       case X
 	       of ident(Y) then
 		  local NewEnv in
@@ -258,7 +258,7 @@ proc {Conditional X S1 S2 Env}
    if {Value.hasFeature Env X} == false
    then raise varNotDeclared(X)	end
    end
-         
+
    local Condition in
       Condition = {RetrieveFromSAS Env.X}
       if Condition == literal(true) then
@@ -290,7 +290,7 @@ proc {Apply F ActualParams Env}
 	 end
       else raise notAProcedure(var:F value:FVal) end
       end
-   end 
+   end
 end
 
 proc {Match X P S1 S2 Env}
@@ -298,7 +298,7 @@ proc {Match X P S1 S2 Env}
       if {Value.hasFeature Env X} == false
       then raise varNotDeclared(X) end
       end
-      
+
       XVal = {RetrieveFromSAS Env.X}
       case XVal
       of equivalence(K) then raise unboundX(X) end
@@ -313,7 +313,7 @@ proc {Match X P S1 S2 Env}
 		     {Push semanticstack(statement:S1 environment:NewEnv)}
 		  catch E then
 		     {Push semanticstack(statement:S2 environment:Env)}
-		  end		     
+		  end
 	       end
 	    else raise partiallyUnboundX(X) end
 	    end

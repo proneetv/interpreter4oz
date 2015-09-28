@@ -39,11 +39,11 @@ fun {ResolveLinksInRecord R}
 	       [] record|_ then [literal(X) {ResolveLinksInRecord Y}]|{Aux T}
 	       else H|{Aux T}
 	       end
-	       else raise illegalRecordPair(H) end
+            else raise illegalRecordPair(H) end
 	    end
 	 end
       end
-      
+
       case R
       of [record literal(N) P] then [record literal(N) {Aux P}]
       else raise illegalRecord(R) end
@@ -101,4 +101,3 @@ fun { RetrieveFromSAS Data}
       end
    end
 end
-
