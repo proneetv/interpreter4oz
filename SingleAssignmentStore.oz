@@ -38,7 +38,7 @@ fun {ResolveLinksInRecord R}
 	       of equivalence(Z) then [literal(X) reference(Z)]|{Aux T}
 	       [] record|_ then [literal(X) {ResolveLinksInRecord Y}]|{Aux T}
 	       else H|{Aux T}
-	       end	  
+	       end
 	    end
 	 end
       end
@@ -47,7 +47,6 @@ fun {ResolveLinksInRecord R}
       of [record N P] then [record N {Aux P}]
       end
    end
-   
 end
 
 proc { BindRefToKeyInSAS Key RefKey}
@@ -93,8 +92,7 @@ fun { RetrieveFromSAS Data}
       if {Dictionary.member SAS Data} then
 	 Val = {Dictionary.get SAS Data}
 	 case Val of reference(Key) then
-	    {Dictionary.put SAS Data {RetrieveFromSAS Key}}
-	    {Dictionary.get SAS Data}
+	    {RetrieveFromSAS Key}
 	 else Val end
       else
 	 raise missingKey(Data) end
