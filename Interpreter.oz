@@ -7,7 +7,7 @@
 
 \insert Unify.oz
 
-declare SStack Temp PrintRoutine Push Pop Bind CreateVar Interpret Conditional Match Apply PushPatternVarsToEnv CheckRecordIfCompletelyBound BindFormalToActual ComputeClosure SubstituteIdentifiers 
+declare SStack Temp 
 
 SStack = {NewCell nil}
 Temp = {NewCell nil}
@@ -122,7 +122,19 @@ end
 fun {CheckRecordIfCompletelyBound R Env}
    local CheckRecord CheckPairs in
       fun {CheckRecord Xs Curr}
-	 case Xs of [record literal(N) Pairs] then {CheckPairs Pairs Curr} end
+	 case Xs of [record N Pairs] then
+	    local NN in
+	       case N
+	       of ident(Name) then NN = {RetrieveFromSAS Env.Name}
+	       else NN = N
+	       end  
+	       case NN
+	       of literal(_) then {CheckPairs Pairs Curr}
+	       else raise illegalRecord(Xs) end
+	       end
+	    end
+	 else raise illegalRecord(Xs) end
+	 end
       end
       
       fun {CheckPairs Xs Curr}
@@ -130,7 +142,17 @@ fun {CheckRecordIfCompletelyBound R Env}
 	 of nil then Curr
 	 [] H|T then
 	    case H
-	    of [literal(_) X] then
+	    of [N X] then
+	       local NN in
+		  case N of ident(Name) then NN = {RetrieveFromSAS Env.Name}
+		  else NN = N
+		  end
+		  case NN
+		  of literal(_) then skip
+		  else raise illegalRecordPair(H) end
+		  end
+	       end
+	       
 	       local XVal in
 		  case X of ident(Y) then XVal = {RetrieveFromSAS Env.Y}
 		  [] reference(Y) then XVal = {RetrieveFromSAS Y}
@@ -154,8 +176,19 @@ end
 fun {PushPatternVarsToEnv R Env}
    local PushRecord PushPairs in
       fun {PushRecord Xs Env}
-	 case Xs of [record literal(N) Pairs] then {PushPairs Pairs Env}
-	 else raise illegalRecord(R) end
+	 case Xs of [record N Pairs] then
+	    local NN in
+	       case N
+	       of ident(Name) then NN = {RetrieveFromSAS Env.Name}
+	       else NN = N
+	       end
+
+	       case NN
+	       of literal(_) then {PushPairs Pairs Env}
+	       else raise illegalRecord(Xs) end
+	       end
+	    end
+	 else raise illegalRecord(Xs) end
 	 end
       end
       
@@ -164,7 +197,18 @@ fun {PushPatternVarsToEnv R Env}
 	 of nil then Env
 	 [] H|T then
 	    case H
-	    of [literal(_) X] then
+	    of [N X] then
+	       local NN in
+		  case N
+		  of ident(Name) then NN = {RetrieveFromSAS Env.Name}
+		  else NN = N
+		  end
+		  case NN
+		  of literal(_) then skip
+		  else raise illegalRecordPair(H) end
+		  end
+	       end
+		  
 	       case X
 	       of ident(Y) then
 		  local NewEnv in
@@ -197,10 +241,9 @@ proc {Bind X Y Env}
       local Closure P in
 	 Closure = {ComputeClosure Statements Env Arg env()}
 	 P = [procedure Arg Statements Closure]
-	 %{Browse P}
 	 {Unify X P Env}
       end
-   else {Unify X Y Env}
+   else {Unify Y X Env}
    end
 end
 
@@ -257,12 +300,11 @@ proc {Match X P S1 S2 Env}
       end
       
       XVal = {RetrieveFromSAS Env.X}
-      %{Browse XVal}
       case XVal
       of equivalence(K) then raise unboundX(X) end
-      [] [record literal(Name1) Pairs1] then
+      [] [record Name1 Pairs1] then
 	 case P
-	 of [record literal(Name2) Pairs2] then
+	 of [record Name2 Pairs2] then
 	    if {CheckRecordIfCompletelyBound XVal Env} then
 	       local NewEnv in
 		  NewEnv = {PushPatternVarsToEnv P Env}
@@ -270,7 +312,6 @@ proc {Match X P S1 S2 Env}
 		     {Unify P XVal NewEnv}
 		     {Push semanticstack(statement:S1 environment:NewEnv)}
 		  catch E then
-		    {Browse E}
 		     {Push semanticstack(statement:S2 environment:Env)}
 		  end		     
 	       end
@@ -333,62 +374,3 @@ proc {PrintRoutine}
    {Browse @SStack}
    {Browse {Dictionary.items SAS}}
 end
-/*
-{Interpret [[nop] [nop] [nop]]}
-
-{Interpret [localvar ident(x) [bind ident(x) literal(5)]]}
-
-{Interpret [[localvar ident(x)	[[nop]  [localvar ident(y)[[bind ident(x) ident(y)] [localvar ident(x)[nop]]]]]]]}
-*/
-{Interpret [localvar ident(x)
-	    [
-	     [localvar ident(y)
-	      [
-	       [bind ident(x) [record literal(label) [[literal(f1) literal(1)] [literal(f2) ident(y)]] ] ]
-	      [bind literal(10) ident(y)]
-	       [match ident(x) [record literal(label) [[literal(f1) ident(s)] [literal(f2) literal(10)]] ]	[localvar ident(x) [bind ident(x) ident(z)]] [nop] ]
-	      ]
-	     ]
-	    ]
-	   ]
-}
-
-/*
-{Interpret [localvar ident(x)
-	    [
-	     [localvar ident(z)
-	      [
-	       [bind ident(x) [procedure [ident(y) ident(x)] [localvar ident(x)
-							      [
-							       [localvar ident(y)
-								[
-								 [bind ident(x) [record literal(label) [[literal(f1) literal(15)] [literal(f2) ident(y)]] ] ]
-								 [bind literal(10) ident(y)]
-								 [match ident(x) [record literal(label) [[literal(f1) ident(s)] [literal(f2) ident(z)]] ]
-								  [localvar ident(x) [bind ident(x) ident(s)]] [nop] ]
-								]
-							       ]
-							      ]
-							     ]
-			      ]
-	       ]
-	      ]
-	     ]
-	     [apply ident(x) literal(1) literal(2)]
-	    ]
-	   ]
-}
-
-
-{Interpret [localvar ident(x)
-	    [localvar ident(y)
-	     [localvar ident(z)
-	      [
-	       [bind ident(x) [record literal(label) [[literal(f1) ident(y)] [literal(f2) ident(z)]] ]]
-	       [bind ident(x) [record literal(label) [[literal(f1) literal(2)] [literal(f2) literal(1) ]] ]]
-	      ]
-	     ]
-	    ]
-	   ]
-}
-*/
