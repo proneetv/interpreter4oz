@@ -7,7 +7,7 @@
 
 \insert Unify.oz
 
-declare SStack Temp PrintRoutine Push Pop Bind CreateVar Interpret Conditional Match Apply PushPatternVarsToEnv CheckRecordIfCompletelyBound
+declare SStack Temp PrintRoutine Push Pop Bind CreateVar Interpret Conditional Match Apply PushPatternVarsToEnv CheckRecordIfCompletelyBound BindFormalToActual ComputeClosure SubstituteIdentifiers 
 
 SStack = {NewCell nil}
 Temp = {NewCell nil}
@@ -15,6 +15,109 @@ Temp = {NewCell nil}
 proc {Push S}
    SStack := S|@SStack
 end
+
+fun {AddFreshVariablesToEnv Xs Env}
+   local AddFreshVarToEnv in
+      fun {AddFreshVarToEnv V Env}
+	 case V
+	 of ident(X) then {AdjoinAt Env X {AddKeyToSAS}}
+	 else raise illegalIdentifier(V) end
+	 end
+      end
+      
+      case Xs
+      of nil then Env
+      [] X|Xr then {AddFreshVariablesToEnv Xr {AddFreshVarToEnv X Env}}
+      end
+   end
+end
+
+fun {SubstituteIdentifiers Exp Env}
+   case Exp
+   of procedure|_ then Exp 
+   [] H|T then {SubstituteIdentifiers H Env}|{SubstituteIdentifiers T Env}
+   [] ident(X) then
+      if {Value.hasFeature Env X} == false
+      then raise varNotDeclared(X) end
+      end
+      {RetrieveFromSAS Env.X}
+   else Exp end
+end
+
+
+proc {BindFormalToActual FP FEnv AP AEnv}
+   case FP
+   of FH|FT then
+      case AP
+      of AH|AT then
+	 {Unify FH {SubstituteIdentifiers AH AEnv} FEnv}
+	 {BindFormalToActual FT FEnv AT AEnv}
+      else raise illegalArity() end
+      end
+   else skip
+   end
+end
+
+fun {CheckVarForFreeVars Xs Env Bound SoFar}
+   case Xs
+   of X|Xr then {CheckVarForFreeVars Xr Env Bound {CheckVarForFreeVars X Env Bound SoFar}}
+   [] ident(X) then
+      if {List.member ident(X) Bound} then SoFar
+      else
+	 if {Value.hasFeature SoFar X} then SoFar
+	 else
+	    if {Value.hasFeature Env X} then {AdjoinAt SoFar X Env.X}
+	    else raise varNotDeclared(X) end
+	    end
+	 end
+      end
+   else SoFar
+   end
+end
+
+fun {ComputeClosure Stmts Env Bound SoFar}
+   case Stmts
+   of nil then SoFar
+   [] [nop] then SoFar
+   [] [localvar ident(X) Xs] then {ComputeClosure Xs Env ident(X)|Bound SoFar}
+   [] [bind X Y] then {CheckVarForFreeVars X Env Bound {CheckVarForFreeVars Y Env Bound SoFar}}
+   [] [conditional ident(X) S1 S2] then
+      if {List.member ident(X) Bound} then {ComputeClosure S2 Env Bound {ComputeClosure S1 Env Bound SoFar}}
+      else
+	 if {Value.hasFeature SoFar X} then {ComputeClosure S2 Env Bound {ComputeClosure S1 Env Bound SoFar}} %if already a free variable then proceed normally
+	 else
+	    if {Value.hasFeature Env X} then {ComputeClosure S2 Env Bound {ComputeClosure S1 Env Bound {AdjoinAt SoFar X Env.X} } }
+	    else raise varNotDeclared(X) end
+	    end
+	 end
+      end
+   [] [match ident(X) Pat S1 S2] then
+      if {List.member ident(X) Bound} then {ComputeClosure S1 {PushPatternVarsToEnv Pat Env} Bound {ComputeClosure S2 Env Bound SoFar}}
+      else
+	 if {Value.hasFeature SoFar X} then {ComputeClosure S1 {PushPatternVarsToEnv Pat Env} Bound {ComputeClosure S2 Env Bound SoFar}} %if already a free variable then proceed normally
+	 else
+	    if {Value.hasFeature Env X} then {ComputeClosure S1 {PushPatternVarsToEnv Pat Env} Bound {ComputeClosure S2 Env Bound {AdjoinAt SoFar X Env.X} } }
+	    else raise varNotDeclared(X) end
+	    end
+	 end
+      end
+   [] apply|ident(X)|Param then
+      if {List.member ident(X) Bound} then {CheckVarForFreeVars Param Env Bound SoFar}
+      else
+	 if {Value.hasFeature SoFar X} then {CheckVarForFreeVars Param Env Bound SoFar} %if already a free variable then proceed normally
+	 else
+	    if {Value.hasFeature Env X} then {CheckVarForFreeVars Param Env Bound {AdjoinAt SoFar X Env.X} }
+	    else raise varNotDeclared(X) end
+	    end
+	 end
+      end
+   [] X|Xs then
+      if Xs \= nil then {ComputeClosure Xs Env Bound {ComputeClosure X Env Bound SoFar}}
+      else {ComputeClosure X Env Bound SoFar}
+      end
+   end
+end
+
 
 fun {CheckRecordIfCompletelyBound R Env}
    local CheckRecord CheckPairs in
@@ -29,8 +132,8 @@ fun {CheckRecordIfCompletelyBound R Env}
 	    case H
 	    of [literal(_) X] then
 	       local XVal in
-		  case X of ident(Y)
-		  then XVal = {RetrieveFromSAS Env.Y}
+		  case X of ident(Y) then XVal = {RetrieveFromSAS Env.Y}
+		  [] reference(Y) then XVal = {RetrieveFromSAS Y}
 		  else XVal = X
 		  end
 		  
@@ -51,7 +154,9 @@ end
 fun {PushPatternVarsToEnv R Env}
    local PushRecord PushPairs in
       fun {PushRecord Xs Env}
-	 case Xs of [record literal(N) Pairs] then {PushPairs Pairs Env} end
+	 case Xs of [record literal(N) Pairs] then {PushPairs Pairs Env}
+	 else raise illegalRecord(R) end
+	 end
       end
       
       fun {PushPairs Xs Env}
@@ -88,8 +193,13 @@ end
 
 proc {Bind X Y Env}
    case Y
-   of [procedure Arg Statement] then
-      {Unify X procedure(argument:Arg statement:Statement environment:Env) Env}
+   of [procedure Arg Statements] then
+      local Closure P in
+	 Closure = {ComputeClosure Statements Env Arg env()}
+	 P = [procedure Arg Statements Closure]
+	 %{Browse P}
+	 {Unify X P Env}
+      end
    else {Unify X Y Env}
    end
 end
@@ -102,6 +212,10 @@ proc {CreateVar X Env Statement}
 end
 
 proc {Conditional X S1 S2 Env}
+   if {Value.hasFeature Env X} == false
+   then raise varNotDeclared(X)	end
+   end
+         
    local Condition in
       Condition = {RetrieveFromSAS Env.X}
       if Condition == literal(true) then
@@ -116,9 +230,32 @@ proc {Conditional X S1 S2 Env}
    end
 end
 
+proc {Apply F ActualParams Env}
+   local FVal in
+      FVal = {RetrieveFromSAS Env.F}
+      case FVal
+      of equivalence(_) then raise unboundProcedure(F) end
+      [] [procedure FormalParams Statements Closure] then
+	 if {List.length FormalParams} \= {List.length ActualParams} then
+	    raise illegalArity(found:{List.length ActualParams} expected:{List.length FormalParams}) end
+	 end
+
+	 local NewEnv in
+	    NewEnv = {AddFreshVariablesToEnv FormalParams Closure}
+	    {BindFormalToActual FormalParams NewEnv ActualParams Env}
+	    {Push semanticstack(statement:Statements environment:NewEnv)}
+	 end
+      else raise notAProcedure(var:F value:FVal) end
+      end
+   end 
+end
 
 proc {Match X P S1 S2 Env}
    local XVal in
+      if {Value.hasFeature Env X} == false
+      then raise varNotDeclared(X) end
+      end
+      
       XVal = {RetrieveFromSAS Env.X}
       %{Browse XVal}
       case XVal
@@ -196,22 +333,62 @@ proc {PrintRoutine}
    {Browse @SStack}
    {Browse {Dictionary.items SAS}}
 end
+/*
+{Interpret [[nop] [nop] [nop]]}
 
-% {Interpret [[nop] [nop] [nop]]}
+{Interpret [localvar ident(x) [bind ident(x) literal(5)]]}
 
-% {Interpret [localvar ident(x) [bind ident(x) literal(5)]]}
-
-%{Interpret [[localvar ident(x)	[[nop]  [localvar ident(y)[[bind ident(x) ident(y)] [localvar ident(x)[nop]]]]]]]}
-
+{Interpret [[localvar ident(x)	[[nop]  [localvar ident(y)[[bind ident(x) ident(y)] [localvar ident(x)[nop]]]]]]]}
+*/
 {Interpret [localvar ident(x)
 	    [
 	     [localvar ident(y)
 	      [
 	       [bind ident(x) [record literal(label) [[literal(f1) literal(1)] [literal(f2) ident(y)]] ] ]
-	       [bind literal(10) ident(y)]
-	       [match ident(x) [record literal(label) [[literal(f1) ident(s)] [literal(f2) ident(z)]] ]	[localvar ident(x) [bind ident(x) ident(z)]] [nop] ]
+	      [bind literal(10) ident(y)]
+	       [match ident(x) [record literal(label) [[literal(f1) ident(s)] [literal(f2) literal(10)]] ]	[localvar ident(x) [bind ident(x) ident(z)]] [nop] ]
 	      ]
 	     ]
 	    ]
 	   ]
 }
+
+/*
+{Interpret [localvar ident(x)
+	    [
+	     [localvar ident(z)
+	      [
+	       [bind ident(x) [procedure [ident(y) ident(x)] [localvar ident(x)
+							      [
+							       [localvar ident(y)
+								[
+								 [bind ident(x) [record literal(label) [[literal(f1) literal(15)] [literal(f2) ident(y)]] ] ]
+								 [bind literal(10) ident(y)]
+								 [match ident(x) [record literal(label) [[literal(f1) ident(s)] [literal(f2) ident(z)]] ]
+								  [localvar ident(x) [bind ident(x) ident(s)]] [nop] ]
+								]
+							       ]
+							      ]
+							     ]
+			      ]
+	       ]
+	      ]
+	     ]
+	     [apply ident(x) literal(1) literal(2)]
+	    ]
+	   ]
+}
+
+
+{Interpret [localvar ident(x)
+	    [localvar ident(y)
+	     [localvar ident(z)
+	      [
+	       [bind ident(x) [record literal(label) [[literal(f1) ident(y)] [literal(f2) ident(z)]] ]]
+	       [bind ident(x) [record literal(label) [[literal(f1) literal(2)] [literal(f2) literal(1) ]] ]]
+	      ]
+	     ]
+	    ]
+	   ]
+}
+*/
