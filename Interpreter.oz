@@ -318,12 +318,20 @@ proc {Match X P S1 S2 Env}
 	    else raise partiallyUnboundX(X) end
 	    end
 	 else
-	 %   {Browse p_is_not_a_record}
 	    {Push semanticstack(statement:S2 environment:Env)}
 	 end
-      else
-	% {Browse x_is_not_a_record}
-	 {Push semanticstack(statement:S2 environment:Env)}
+      [] procedure|_ then raise illegalTypeInPatternMatching(X) end
+      else % XVal is literal(_)
+	 local NewEnv in
+	    case P
+	    of ident(Z) then
+	       NewEnv = {AdjoinAt Env Z {AddKeyToSAS}}
+	       {Unify P XVal NewEnv}
+	       {Push semanticstack(statement:S1 environment:NewEnv)}
+	    [] XVal then {Push semanticstack(statement:S1 environment:Env)}
+	    else {Push semanticstack(statement:S2 environment:Env)}
+	    end
+	 end
       end
    end
 end

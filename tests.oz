@@ -68,18 +68,6 @@
 }
 
 {Interpret
- [localvar ident(foo)
-  [localvar ident(bar)
-   [
-    [bind ident(foo) [record literal(person) [[literal(name) ident(foo)]] ] ]
-    [bind ident(bar) [record literal(person) [[literal(name) ident(bar)]] ] ]
-    [bind ident(foo) ident(bar)]
-   ]
-  ]
- ]
-}
-
-{Interpret
  [localvar ident(x)
   [
    [localvar ident(y)
@@ -106,8 +94,6 @@
     [conditional ident(foo) [bind ident(result) literal(true)] [bind ident(result) literal(false)] ]
     [bind ident(result) literal(true)]]]]
 }
-
-
 
 {Interpret
  [localvar ident(foo)
@@ -151,6 +137,7 @@
  ]
 }
 
+
 {Interpret
  [localvar ident(foo)
   [localvar ident(bar)
@@ -186,15 +173,12 @@
     [
      [bind ident(foo) ident(bar)]
      [bind literal(20) ident(bar)]
-     [match ident(foo) literal(21) [bind ident(baz) literal(t)] [bind ident(baz) literal(f)] ]
-     [bind ident(baz) literal(f)]
-     [nop]
+     [match ident(foo) ident(foo) [bind ident(baz) ident(foo)] [bind ident(baz) literal(f)] ]
     ]
    ]
   ]
  ]
 }
-*/
 
 {Interpret
  [localvar ident(foo)
@@ -213,7 +197,7 @@
   ]
  ]
 }
-
+*/
 
 /*
 % Unify.oz doesn't check for the names of the records features whether they are same or not. Here is an example where it successfully unifies these two records
