@@ -7,14 +7,12 @@
 
 \insert Unify.oz
 
-declare SStack Temp
+declare MultiStack Temp CurrStack NewThread
 
-SStack = {NewCell nil}
+MultiStack = {NewCell nil}
 Temp = {NewCell nil}
-
-proc {Push S}
-   SStack := S|@SStack
-end
+CurrStack = {NewCell nil}
+NewThread = {NewCell nil}
 
 fun {AddFreshVariablesToEnv Xs Env}
    local AddFreshVarToEnv in
@@ -226,15 +224,6 @@ fun {PushPatternVarsToEnv R Env}
    end
 end
 
-fun {Pop}
-   case @SStack
-   of nil then nil
-   [] H|T then
-      SStack := T
-      H
-   end
-end
-
 proc {Bind X Y Env}
    case Y
    of [procedure Arg Statements] then
@@ -247,14 +236,14 @@ proc {Bind X Y Env}
    end
 end
 
-proc {CreateVar X Env Statement}
+proc {CreateVar X Env Statement SStack}
    local NewEnv in
       {AdjoinAt Env X {AddKeyToSAS} NewEnv}
-      {Push semanticstack(statement:Statement environment:NewEnv)}
+      {Push semanticstack(statement:Statement environment:NewEnv) SStack}
    end
 end
 
-proc {Conditional X S1 S2 Env}
+proc {Conditional X S1 S2 Env SStack}
    if {Value.hasFeature Env X} == false
    then raise varNotDeclared(X)	end
    end
@@ -262,10 +251,10 @@ proc {Conditional X S1 S2 Env}
    local Condition in
       Condition = {RetrieveFromSAS Env.X}
       if Condition == literal(true) then
-         {Push semanticstack(statement:S1 environment:Env)}
+         {Push semanticstack(statement:S1 environment:Env) SStack}
       else
          if Condition == literal(false) then
-            {Push semanticstack(statement:S2 environment:Env)}
+            {Push semanticstack(statement:S2 environment:Env) SStack}
          else
             raise booleanCheckFailed(X) end
          end
@@ -273,7 +262,7 @@ proc {Conditional X S1 S2 Env}
    end
 end
 
-proc {Apply F ActualParams Env}
+proc {Apply F ActualParams Env SStack}
    local FVal in
       FVal = {RetrieveFromSAS Env.F}
       case FVal
@@ -286,14 +275,14 @@ proc {Apply F ActualParams Env}
 	 local NewEnv in
 	    NewEnv = {AddFreshVariablesToEnv FormalParams Closure}
 	    {BindFormalToActual FormalParams NewEnv ActualParams Env}
-	    {Push semanticstack(statement:Statements environment:NewEnv)}
+	    {Push semanticstack(statement:Statements environment:NewEnv) SStack}
 	 end
       else raise notAProcedure(var:F value:FVal) end
       end
    end
 end
 
-proc {Match X P S1 S2 Env}
+proc {Match X P S1 S2 Env SStack}
    local XVal in
       if {Value.hasFeature Env X} == false
       then raise varNotDeclared(X) end
@@ -310,15 +299,15 @@ proc {Match X P S1 S2 Env}
 		  NewEnv = {PushPatternVarsToEnv P Env}
 		  try
 		     {Unify P XVal NewEnv}
-		     {Push semanticstack(statement:S1 environment:NewEnv)}
+		     {Push semanticstack(statement:S1 environment:NewEnv) SStack}
 		  catch E then
-		     {Push semanticstack(statement:S2 environment:Env)}
+		     {Push semanticstack(statement:S2 environment:Env) SStack}
 		  end
 	       end
 	    else raise partiallyUnboundX(X) end
 	    end
 	 else
-	    {Push semanticstack(statement:S2 environment:Env)}
+	    {Push semanticstack(statement:S2 environment:Env) SStack}
 	 end
       [] procedure|_ then raise illegalTypeInPatternMatching(X) end
       else % XVal is literal(_)
@@ -327,58 +316,88 @@ proc {Match X P S1 S2 Env}
 	    of ident(Z) then
 	       NewEnv = {AdjoinAt Env Z {AddKeyToSAS}}
 	       {Unify P XVal NewEnv}
-	       {Push semanticstack(statement:S1 environment:NewEnv)}
-	    [] XVal then {Push semanticstack(statement:S1 environment:Env)}
-	    else {Push semanticstack(statement:S2 environment:Env)}
+	       {Push semanticstack(statement:S1 environment:NewEnv) SStack}
+	    [] XVal then {Push semanticstack(statement:S1 environment:Env) SStack}
+	    else {Push semanticstack(statement:S2 environment:Env) SStack}
 	    end
 	 end
       end
    end
 end
 
+fun {Pop SStack}
+   case @SStack
+   of nil then nil
+   [] H|T then
+      SStack := T
+      H
+   end
+end
 
+proc {Push S SStack}
+   SStack := S|@SStack
+end
 
 proc {Interpret AST}
-   {Push semanticstack(statement:AST environment:env())}
+   CurrStack:= nil
+   {Push semanticstack(statement:AST environment:env()) CurrStack}
+   {Push @CurrStack MultiStack}
+
    local Execute in
-      proc {Execute}
-	 {PrintRoutine}
-	 Temp := {Pop}
+      proc {Execute SStack}
+	 {PrintRoutine SStack}
+	 Temp := {Pop SStack}
 	 if @Temp \= nil then
 	    case @Temp.statement
-	    of nil then {Browse 'Success'}
-	    [] [nop] then {Execute}
+	    of nil then {Browse 'Thread execution completed'}
+	    [] [nop] then {Execute SStack}
 	    [] [localvar ident(X) Xs] then
-	       {CreateVar X @Temp.environment Xs}
-	       {Execute}
+	       {CreateVar X @Temp.environment Xs SStack}
+	       {Execute SStack}
 	    [] [bind X Y] then
 	       {Bind X Y @Temp.environment}
-	       {Execute}
-            [] [conditional ident(X) S1 S2] then
-               {Conditional X S1 S2 @Temp.environment}
-               {Execute}
+	       {Execute SStack}
+	    [] [conditional ident(X) S1 S2] then
+	       {Conditional X S1 S2 @Temp.environment SStack}
+	       {Execute SStack}
 	    [] [match ident(X) Pat S1 S2] then
-               {Match X Pat S1 S2 @Temp.environment}
-               {Execute}
-            [] apply|ident(X)|Param then
-               {Apply X Param @Temp.environment}
-               {Execute}
-            [] X|Xs then
+	       {Match X Pat S1 S2 @Temp.environment SStack}
+	       {Execute SStack}
+	    [] apply|ident(X)|Param then
+	       {Apply X Param @Temp.environment SStack}
+	       {Execute SStack}
+	    [] [newthread S] then
+	       NewThread:= nil
+	       {Push semanticstack(statement:S environment:@Temp.environment) NewThread}
+	       {Push @NewThread MultiStack}
+	       {Execute SStack}
+	    [] X|Xs then
 	       if Xs \= nil then
-		  {Push semanticstack(statement:Xs environment:@Temp.environment)}
+		  {Push semanticstack(statement:Xs environment:@Temp.environment) SStack}
 	       else skip
 	       end
-	       {Push semanticstack(statement:X environment:@Temp.environment)}
-	       {Execute}
+	       {Push semanticstack(statement:X environment:@Temp.environment) SStack}
+	       {Execute SStack}
 	    end
-	 else {Browse 'Success'}
+	 else
+	    {Browse 'Thread Execution Completed'}
+	    {Browse 'Scheduling Another Thread For Execution'}
+	    CurrStack := {Pop MultiStack}
+	    case @CurrStack
+	    of nil then {Browse 'No more threads to run. Exiting...'}
+	    else {Execute CurrStack}
+	    end
 	 end
       end
-      {Execute}
+      CurrStack := {Pop MultiStack}
+      case @CurrStack
+      of nil then {Browse 'No more threads to run. Exiting...'}
+      else {Execute CurrStack}
+      end
    end
 end
 
-proc {PrintRoutine}
+proc {PrintRoutine SStack}
    {Browse @SStack}
    {Browse {Dictionary.items SAS}}
 end

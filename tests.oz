@@ -1,7 +1,7 @@
 
 \insert Interpreter.oz
-/*
-{Interpret [[nop] [nop] [nop]]}
+
+/*{Interpret [[nop] [newthread [[nop]]] [nop]]}
 
 {Interpret [localvar ident(x) [bind ident(x) literal(5)]]}
 
@@ -13,7 +13,7 @@
 	      [
 	       [bind ident(x) [record literal(label) [[literal(f1) literal(1)] [literal(f2) ident(y)]] ] ]
 	      [bind literal(10) ident(y)]
-	       [match ident(x) [record literal(label) [[literal(f1) ident(s)] [literal(f2) literal(10)]] ]	[localvar ident(x) [bind ident(x) ident(s)]] [nop] ]
+	       [match ident(x) [record literal(label) [[literal(f1) ident(s)] [literal(f2) literal(10)]] ]	[newthread [localvar ident(x) [bind ident(x) ident(s)]]] [nop] ]
 	      ]
 	     ]
 	    ]
