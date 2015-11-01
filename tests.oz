@@ -1,50 +1,65 @@
 
 \insert Interpreter.oz
-
-/*{Interpret [[nop] [newthread [[nop]]] [nop]]}
+/*
+{Interpret [[nop] [newthread [[nop]]] [nop]]}
 
 {Interpret [localvar ident(x) [bind ident(x) literal(5)]]}
 
-{Interpret [[localvar ident(x)	[[nop]  [localvar ident(y)[[bind ident(x) ident(y)] [localvar ident(x)[nop]]]]]]]}
+{Interpret [
+	    [localvar ident(x)
+	     [
+	      [localvar ident(y)
+	       [
+		[newthread [conditional ident(y) [bind ident(x) literal(true)] [bind ident(x) literal(false)]] ]
+		[conditional ident(x) [bind ident(y) literal(true)] [bind ident(y) literal(false)]] 
+	       ]
+	      ]
+	     ]
+	    ]
+	   ]
+}
 
 {Interpret [localvar ident(x)
 	    [
 	     [localvar ident(y)
 	      [
-	       [bind ident(x) [record literal(label) [[literal(f1) literal(1)] [literal(f2) ident(y)]] ] ]
-	      [bind literal(10) ident(y)]
+	       [newthread [bind ident(x) [record literal(label) [[literal(f1) literal(1)] [literal(f2) ident(y)]] ] ]]
+	       [newthread [bind literal(10) ident(y)]]
 	       [match ident(x) [record literal(label) [[literal(f1) ident(s)] [literal(f2) literal(10)]] ]	[newthread [localvar ident(x) [bind ident(x) ident(s)]]] [nop] ]
 	      ]
 	     ]
 	    ]
 	   ]
 }
+*/
 
 {Interpret [localvar ident(x)
 	    [
 	     [localvar ident(z)
 	      [
-	       [bind ident(x) [procedure [ident(y) ident(x)] [localvar ident(x)
-							      [
-							       [localvar ident(y)
-								[
-								 [bind ident(x) [record literal(label) [[literal(f1) literal(15)] [literal(f2) ident(y)]] ] ]
-								 [bind literal(10) ident(y)]
-								 [match ident(x) [record literal(label) [[literal(f1) ident(s)] [literal(f2) ident(z)]] ]
-								  [localvar ident(x) [bind ident(x) ident(s)]] [nop] ]
-								]
-							       ]
-							      ]
-							     ]
-			      ]
+	       [localvar ident(y)
+		[
+		 [bind ident(x) [procedure [ident(y)] [localvar ident(x)
+							[
+							 [newthread [bind ident(x) [record literal(label) [[literal(f1) literal(15)] [literal(f2) ident(y)]] ] ] ]
+							 [newthread [bind ident(z) ident(y)] ]
+							 [match ident(x) [record literal(label) [[literal(f1) literal(15)] [literal(f2) literal(223)]] ]
+							  [localvar ident(x) [bind ident(x) ident(y)]]
+							  [nop]
+							 ]
+							]
+						       ]
+				]]
+		 [bind ident(z) literal(223)]
+		 [apply ident(x) ident(y)]
+		]
 	       ]
 	      ]
 	     ]
-	     [apply ident(x) literal(1) literal(2)]
 	    ]
 	   ]
 }
-
+/*
 {Interpret [localvar ident(x)
 	    [localvar ident(y)
 	     [localvar ident(z)

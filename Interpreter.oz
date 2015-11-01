@@ -7,12 +7,13 @@
 
 \insert Unify.oz
 
-declare MultiStack Temp CurrStack NewThread
+declare MultiStack Temp CurrStack NewThread SuspendCounter
 
 MultiStack = {NewCell nil}
 Temp = {NewCell nil}
 CurrStack = {NewCell nil}
 NewThread = {NewCell nil}
+SuspendCounter = {NewCell 0}
 
 fun {AddFreshVariablesToEnv Xs Env}
    local AddFreshVarToEnv in
@@ -109,6 +110,8 @@ fun {ComputeClosure Stmts Env Bound SoFar}
 	    end
 	 end
       end
+   [] newthread|Xs then
+      {ComputeClosure Xs Env Bound SoFar}
    [] X|Xs then
       if Xs \= nil then {ComputeClosure Xs Env Bound {ComputeClosure X Env Bound SoFar}}
       else {ComputeClosure X Env Bound SoFar}
@@ -250,14 +253,11 @@ proc {Conditional X S1 S2 Env SStack}
 
    local Condition in
       Condition = {RetrieveFromSAS Env.X}
-      if Condition == literal(true) then
-         {Push semanticstack(statement:S1 environment:Env) SStack}
-      else
-         if Condition == literal(false) then
-            {Push semanticstack(statement:S2 environment:Env) SStack}
-         else
-            raise booleanCheckFailed(X) end
-         end
+      case Condition
+      of literal(true) then {Push semanticstack(statement:S1 environment:Env) SStack} 
+      [] literal(false) then {Push semanticstack(statement:S2 environment:Env) SStack}
+      [] equivalence(_) then raise suspendOnUnbound(X) end
+      else raise booleanCheckFailed(X) end
       end
    end
 end
@@ -290,7 +290,7 @@ proc {Match X P S1 S2 Env SStack}
 
       XVal = {RetrieveFromSAS Env.X}
       case XVal
-      of equivalence(K) then raise unboundX(X) end
+      of equivalence(K) then raise suspendOnUnbound(X) end
       [] [record Name1 Pairs1] then
 	 case P
 	 of [record Name2 Pairs2] then
@@ -304,7 +304,8 @@ proc {Match X P S1 S2 Env SStack}
 		     {Push semanticstack(statement:S2 environment:Env) SStack}
 		  end
 	       end
-	    else raise partiallyUnboundX(X) end
+	    else
+	       raise suspendOnUnbound(X) end
 	    end
 	 else
 	    {Push semanticstack(statement:S2 environment:Env) SStack}
@@ -338,6 +339,11 @@ proc {Push S SStack}
    SStack := S|@SStack
 end
 
+proc {PushToBack S SStack}
+   SStack := {List.append @SStack [S]}
+end
+
+
 proc {Interpret AST}
    CurrStack:= nil
    {Push semanticstack(statement:AST environment:env()) CurrStack}
@@ -350,26 +356,78 @@ proc {Interpret AST}
 	 if @Temp \= nil then
 	    case @Temp.statement
 	    of nil then {Browse 'Thread execution completed'}
-	    [] [nop] then {Execute SStack}
+	    [] [nop]then
+	       SuspendCounter := 0
+	       {Execute SStack}
 	    [] [localvar ident(X) Xs] then
 	       {CreateVar X @Temp.environment Xs SStack}
+	       SuspendCounter := 0
 	       {Execute SStack}
 	    [] [bind X Y] then
 	       {Bind X Y @Temp.environment}
+	       SuspendCounter := 0
 	       {Execute SStack}
 	    [] [conditional ident(X) S1 S2] then
-	       {Conditional X S1 S2 @Temp.environment SStack}
-	       {Execute SStack}
+	       try
+		  {Conditional X S1 S2 @Temp.environment SStack}
+		  SuspendCounter := 0
+		  {Execute SStack}
+	       catch E then
+		  case E
+		  of suspendOnUnbound(Variable) then
+		     SuspendCounter := @SuspendCounter+1
+		     {Push @Temp SStack}
+		     {PushToBack @SStack MultiStack}
+		     {Browse 'Thread suspended'}
+		     if @SuspendCounter == {List.length @MultiStack}
+		     then {Browse 'All threads suspended. Exiting...'}
+		     else
+			{Browse 'Scheduling Another Thread For Execution'}
+			CurrStack := {Pop MultiStack}
+			case @CurrStack
+			of nil then {Browse 'No more threads to run. Exiting...'}
+			else {Execute CurrStack}
+			end
+		     end
+		  else
+		     raise E end
+		  end
+	       end
 	    [] [match ident(X) Pat S1 S2] then
-	       {Match X Pat S1 S2 @Temp.environment SStack}
-	       {Execute SStack}
+	       try
+		  {Match X Pat S1 S2 @Temp.environment SStack}
+		  SuspendCounter := 0
+		  {Execute SStack}
+	       catch E then
+		  case E
+		  of suspendOnUnbound(Variable) then
+		     SuspendCounter := @SuspendCounter+1
+		     {Push @Temp SStack}
+		     {PushToBack @SStack MultiStack}
+		     {Browse 'Thread suspended'}
+		     if @SuspendCounter == {List.length @MultiStack}
+		     then {Browse 'All threads suspended. Exiting...'}
+		     else
+			{Browse 'Scheduling Another Thread For Execution'}
+			CurrStack := {Pop MultiStack}
+			case @CurrStack
+			of nil then {Browse 'No more threads to run. Exiting...'}
+			else {Execute CurrStack}
+			end
+		     end
+		  else
+		     raise E end
+		  end
+	       end
 	    [] apply|ident(X)|Param then
 	       {Apply X Param @Temp.environment SStack}
+	       SuspendCounter := 0
 	       {Execute SStack}
 	    [] [newthread S] then
 	       NewThread:= nil
 	       {Push semanticstack(statement:S environment:@Temp.environment) NewThread}
-	       {Push @NewThread MultiStack}
+	       {PushToBack @NewThread MultiStack}
+	       SuspendCounter := 0
 	       {Execute SStack}
 	    [] X|Xs then
 	       if Xs \= nil then
@@ -385,7 +443,8 @@ proc {Interpret AST}
 	    CurrStack := {Pop MultiStack}
 	    case @CurrStack
 	    of nil then {Browse 'No more threads to run. Exiting...'}
-	    else {Execute CurrStack}
+	    else
+	       {Execute CurrStack}
 	    end
 	 end
       end
